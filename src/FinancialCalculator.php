@@ -35,19 +35,34 @@
                 'capital' => $capital,
                 'taxa' => $rate,
                 'tempo' => $time,
-                'tipo' => $type
             ];
 
-            //$this->validateElements($elements);
+            $this->validateElements($elements);
 
-            $parcelsNumber = $time * 12;
+            if (!in_array($type, ['SAC', 'Price'])) {
+                throw new Exception("Um(a) tipo válido(a) deve ser fornecido(a)");
+            }
+
+            $parcelsNumber = ceil($time * 12);
             $monthlyRate = $rate / 12;
             $outstandingBalance = $capital;
 
-            $data = [];
+            $totalFee = 0;
 
             if ($type === 'SAC') {
-                
+                $amortization = $capital / $parcelsNumber;
+
+                for ($i = 0; $i < $parcelsNumber; $i++) {
+                    $fee = $outstandingBalance * $monthlyRate;
+                    $parcelValue = $outstandingBalance + $fee;
+                    $outstandingBalance -= $amortization;
+
+                    $data[$i] = [
+                        'amortization' => round($amortization, 2),
+                    ];
+
+                    $totalFee += $fee;
+                }
             }
 
             if ($type === 'Price') {
@@ -55,23 +70,24 @@
                     $parcelValue = ($capital) * ((pow(1 + $monthlyRate, $parcelsNumber) * $monthlyRate) / ((pow(1 + $monthlyRate, $parcelsNumber) - 1)));
                     $fee = $outstandingBalance * $monthlyRate;
                     $amortization = $parcelValue - $fee;
-                    $outstandingBalance = $outstandingBalance > 0 ? $outstandingBalance - $amortization : 0;
+                    $outstandingBalance -= $amortization;
 
-                    array_push($data, [
-                        'parcelValue' => round($parcelValue, 2),
-                        'fee' => round($fee, 2),
+                    $data[$i] = [
                         'amortization' => round($amortization, 2),
-                        'outstandingValue' => round($outstandingBalance, 2)
-                    ]);
+                    ];
+
+                    $totalFee += $fee;
                 }
             }
+
+            $data['totalFee'] = round($totalFee, 2);
 
             return $data;
         }
 
         private function validateElements(array $elements): void {
             foreach ($elements as $key=>$value) {
-                if (($key === 'tipo' && !in_array($value, ['SAC', 'Price'])) || !is_numeric($value) || $value <= 0) {
+                if (!is_numeric($value) || $value <= 0) {
                     throw new Exception("Um(a) $key válido(a) deve ser fornecido(a)");
                 }
             }
